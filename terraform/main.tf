@@ -43,6 +43,13 @@ resource "aws_instance" "docker_instance" {
               amazon-linux-extras install docker -y
               service docker start
               usermod -a -G docker ec2-user
+              yum install git -y
+              cd /home/ec2-user
+              git clone https://github.com/guilhermelaender/projeto-final-ia.git
+              chown -R ec2-user:ec2-user projeto-final-ia
+              cd projeto-final-ia
+              docker build -t agente-ia .
+              docker run -it -p 8501:8501 agente-ia
               EOF
 
   tags = {
