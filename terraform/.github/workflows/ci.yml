@@ -1,0 +1,85 @@
+name: CI (Python • Docker • Terraform @ LocalStack)
+AWS_DEFAULT_REGION: us-east-1
+options: >-
+--health-cmd "bash -c 'awslocal sts get-caller-identity || exit 1'" \
+--health-interval 10s \
+--health-timeout 5s \
+--health-retries 12
+
+
+env:
+AWS_ACCESS_KEY_ID: test
+AWS_SECRET_ACCESS_KEY: test
+AWS_DEFAULT_REGION: us-east-1
+LOCALSTACK_ENDPOINT: http://localhost:4566
+PYTHONUNBUFFERED: "1"
+
+
+steps:
+- name: Checkout
+uses: actions/checkout@v4
+
+
+- name: Setup Python
+uses: actions/setup-python@v5
+with:
+python-version: '3.11'
+
+
+- name: Install dependencies
+run: |
+python -m pip install --upgrade pip
+if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+
+
+- name: Lint & Unit tests
+run: |
+pytest -q --disable-warnings --maxfail=1
+
+
+- name: Build Docker image
+run: |
+docker build -t app-under-test:ci .
+
+
+- name: Terraform init & validate (LocalStack backend disabled)
+run: |
+terraform init -backend=false
+terraform fmt -check
+terraform validate
+
+
+- name: Terraform plan (simulate)
+env:
+AWS_ACCESS_KEY_ID: test
+AWS_SECRET_ACCESS_KEY: test
+AWS_DEFAULT_REGION: us-east-1
+run: |
+# Point AWS provider to LocalStack via environment variables if your provider supports it,
+# otherwise rely on LocalStack-mirrored endpoints (commonly works for plan/apply for many resources).
+export TF_LOG=ERROR
+terraform plan -refresh=false -lock=false -input=false || true
+
+
+- name: Simulated deploy (apply to LocalStack)
+env:
+AWS_ACCESS_KEY_ID: test
+AWS_SECRET_ACCESS_KEY: test
+AWS_DEFAULT_REGION: us-east-1
+run: |
+bash scripts/simulate_deploy.sh
+
+
+- name: Persist test & plan artifacts
+if: always()
+uses: actions/upload-artifact@v4
+with:
+name: ci-artifacts
+path: |
+.terraform/**
+**/pytest*.xml
+**/coverage*.xml
+**/*.tfplan
+**/*.log
+if-no-files-found: ignore

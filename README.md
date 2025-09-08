@@ -6,11 +6,5 @@
 - Isabella Antunes
 - Leonardo Miranda
 
-## Descrição do agente e do problema
-
-## Instruções de instalação e execução
-
-## Explicação dos scripts IaC
-
-## Como funciona o pipeline CI/CD
+## Estrutura dos Arquivos do Projeto
 
